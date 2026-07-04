@@ -42,6 +42,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
+      # A PR conversation comment is an *issue* comment, so reacting 👀 to it
+      # needs issues:write (pull-requests:write does NOT cover reactions).
+      issues: write
     outputs:
       build: ${{ steps.check.outputs.build }}
       pr: ${{ steps.check.outputs.pr }}
@@ -63,6 +66,7 @@ jobs:
           IC_NUM: ${{ github.event.issue.number }}
           COMMENTER: ${{ github.event.comment.user.login }}
           ASSOC: ${{ github.event.comment.author_association }}
+          CID: ${{ github.event.comment.id }}
         run: |
           set -euo pipefail
           build=false; pr=""; canwrite=false
@@ -87,6 +91,12 @@ jobs:
               build=true; pr="$IC_NUM"
               # issue_comment runs in the base-repo context -> write is available.
               canwrite=true
+              # Instant 👀 ack so the commenter sees /preview was accepted, before
+              # the multi-minute build even starts. CID is an int -> safe to use.
+              gh api --method POST \
+                "repos/$GH_REPO/issues/comments/$CID/reactions" \
+                -f content=eyes >/dev/null \
+                || echo "::warning::could not add 👀 reaction (non-fatal)"
             fi
           fi
 
@@ -177,8 +187,12 @@ jobs:
           APPLE_SIGNING_IDENTITY: "-"
         with:
           # No tagName/releaseId -> tauri-action only builds, creates no Release.
+          # Override createUpdaterArtifacts=false: the config ships an updater
+          # pubkey, which otherwise makes `tauri build` demand TAURI_SIGNING_PRIVATE_KEY
+          # (a secret we deliberately don't expose to fork PRs). Previews don't
+          # need the self-update bundle anyway.
           tauriScript: pnpm tauri
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --config {"bundle":{"createUpdaterArtifacts":false}}
 
       - name: Upload preview artifacts
         uses: actions/upload-artifact@v4
