@@ -405,3 +405,5 @@ Apache License 2.0
     <img src="https://repostars.dev/api/embed?repo=TabularisDB%2Ftabularis&theme=dark" alt="RepoStars" />
   </a>
 </p>
+
+<!-- ci sandbox: test PR, no preview trigger -->
